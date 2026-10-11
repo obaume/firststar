@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Rink Location Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column for a phone in the stands; live readout up top, log below. */
+:root {
+  --bg: #eef3f6; --surface: #ffffff; --fg: #12202b; --muted: #5a6b78;
+  --line: #cfdae2; --accent: #0b6aa8; --good: #1a7f4b; --warn: #a86400; --bad: #b3261e;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0d151b; --surface: #15212a; --fg: #e3ecf2; --muted: #93a6b4;
+    --line: #26353f; --accent: #5bb2ea; --good: #4cc489; --warn: #e3a53c; --bad: #f2867d; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 var(--body); }
+main { max-width: 34rem; margin: 0 auto; padding-inline: 16px; padding-block: max(16px, env(safe-area-inset-top)) 48px; display: grid; gap: 20px; }
+h1 { font: 700 2rem/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+h2 { font: 600 1.15rem/1.2 var(--display); text-transform: uppercase; letter-spacing: .06em; margin: 0; color: var(--muted); }
+p { margin: 0; }
+.venue { color: var(--muted); font-size: .95rem; }
+.venue b { color: var(--fg); }
+section { display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+label { display: grid; gap: 4px; font-size: .9rem; color: var(--muted); }
+input, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+button { font: 600 1.05rem var(--body); border: 0; border-radius: 8px; padding: 14px 16px; cursor: pointer; background: var(--accent); color: #fff; }
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+button:disabled { opacity: .55; cursor: default; }
+.readout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { display: grid; gap: 2px; }
+.stat span { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.stat b { font: 500 1.6rem/1 var(--mono); font-variant-numeric: tabular-nums; }
+.status { font-size: .95rem; }
+.status.ok { color: var(--good); } .status.warn { color: var(--warn); } .status.bad { color: var(--bad); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s linear; }
+.log { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font: .82rem var(--mono); font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; }
+.tips { font-size: .9rem; color: var(--muted); display: grid; gap: 6px; padding-left: 1.1rem; margin: 0; }
+textarea { width: 100%; min-height: 8rem; font: .75rem var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:6px">
+    <h1>Rink location test</h1>
+    <p class="venue">Measuring distance to <b id="venueName">the rink</b> (SIHF rink point <span id="venueCoords"></span>).</p>
+  </header>
+
+  <section>
+    <h2>Before you start</h2>
+    <ul class="tips">
+      <li>iPhone: Settings → Privacy &amp; Security → Location Services → Safari Websites → <b>While Using</b>, and <b>Precise Location</b> on. Then note whether it was on or off below.</li>
+      <li>Android: allow location for the browser and keep "Use precise location" on.</li>
+      <li>Do one measurement per seat. Several seats and both networks (Wi-Fi and mobile data) help most.</li>
+    </ul>
+  </section>
+
+  <section class="card" aria-labelledby="setupTitle">
+    <h2 id="setupTitle">This phone</h2>
+    <label for="phone">Phone model<input id="phone" autocomplete="off" placeholder="e.g. iPhone 13, Galaxy S22"></label>
+    <label for="seat">Where you are<input id="seat" autocomplete="off" placeholder="e.g. Sector B row 8, standing area, bar, car park"></label>
+    <div class="row">
+      <label for="net">Network<select id="net"><option value="">Choose</option><option>Wi-Fi</option><option>Mobile data</option><option>Don't know</option></select></label>
+      <label for="precise">Precise location<select id="precise"><option value="">Choose</option><option>On</option><option>Off</option><option>Don't know</option></select></label>
+    </div>
+    <button id="go" type="button">Measure for 30 seconds</button>
+  </section>
+
+  <section class="card" aria-live="polite">
+    <h2>Live reading</h2>
+    <p id="status" class="status">Not measuring yet.</p>
+    <div class="bar" aria-hidden="true"><i id="progress"></i></div>
+    <div class="readout">
+      <div class="stat"><span>Accuracy</span><b id="acc">–</b></div>
+      <div class="stat"><span>Distance</span><b id="dist">–</b></div>
+      <div class="stat"><span>Dist − acc</span><b id="margin">–</b></div>
+    </div>
+    <p class="venue">All values in metres. "Dist − acc" is how far outside the rink point the phone would be even in the best case.</p>
+  </section>
+
+  <section>
+    <h2>Measurements on this phone</h2>
+    <div class="log"><table>
+      <thead><tr><th>Time</th><th>Seat</th><th>Net</th><th>Fixes</th><th>1st fix</th><th>Best ±</th><th>Best dist</th><th>Last ±</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8">No measurements yet. Fill in "This phone" and tap Measure.</td></tr></tbody>
+    </table></div>
+    <div class="row">
+      <button id="copy" type="button" class="secondary">Copy results</button>
+      <button id="clear" type="button" class="secondary">Clear</button>
+    </div>
+    <p class="venue" id="copyNote">Paste the copied results as a comment on the GitHub ticket, or send them to Oscar.</p>
+    <textarea id="out" readonly hidden aria-label="Results to copy"></textarea>
+  </section>
+</main>
+
+<script>
+// Rink point from the SIHF rink map (/de/game-center/eisfelder/224). Override with ?lat=..&lng=..&name=..
+const VENUE = { name: "Parc des sports, Château-d'Oex", lat: 46.473938, lng: 7.126188 };
+const DURATION_MS = 30000;
+
+const q = new URLSearchParams(location.search);
+if (q.get("lat") && q.get("lng")) { VENUE.lat = +q.get("lat"); VENUE.lng = +q.get("lng"); VENUE.name = q.get("name") || "custom point"; }
+const $ = id => document.getElementById(id);
+$("venueName").textContent = VENUE.name;
+$("venueCoords").textContent = VENUE.lat.toFixed(5) + ", " + VENUE.lng.toFixed(5);
+
+function distance(lat1, lng1, lat2, lng2) {
+  const R = 6371000, r = d => d * Math.PI / 180;
+  const a = Math.sin(r(lat2 - lat1) / 2) ** 2 + Math.cos(r(lat1)) * Math.cos(r(lat2)) * Math.sin(r(lng2 - lng1) / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function device() {
+  const ua = navigator.userAgent;
+  let os = "other", m;
+  if ((m = ua.match(/iPhone OS (\d+)_(\d+)/))) os = "iOS " + m[1] + "." + m[2];
+  else if (/iPad|Macintosh/.test(ua) && navigator.maxTouchPoints > 1) os = "iPadOS";
+  else if ((m = ua.match(/Android (\d+(\.\d+)?)/))) os = "Android " + m[1];
+  const browser = /CriOS/.test(ua) ? "Chrome" : /FxiOS/.test(ua) ? "Firefox" : /EdgiOS|EdgA/.test(ua) ? "Edge"
+    : /SamsungBrowser/.test(ua) ? "Samsung" : /Firefox/.test(ua) ? "Firefox" : /Chrome/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : "other";
+  return { os, browser };
+}
+
+const KEY = "rink-test-v1";
+let log = [];
+try { log = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { log = []; }
+try { const f = JSON.parse(localStorage.getItem(KEY + "-form") || "{}"); for (const k of ["phone", "seat", "net", "precise"]) if (f[k]) $(k).value = f[k]; } catch (e) {}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(log)); } catch (e) {}
+  try { localStorage.setItem(KEY + "-form", JSON.stringify({ phone: $("phone").value, seat: $("seat").value, net: $("net").value, precise: $("precise").value })); } catch (e) {}
+}
+const m0 = v => v == null ? "–" : Math.round(v).toString();
+
+function render() {
+  const tb = $("rows");
+  tb.textContent = "";
+  if (!log.length) { tb.innerHTML = '<tr><td colspan="8">No measurements yet. Fill in "This phone" and tap Measure.</td></tr>'; return; }
+  for (const r of log) {
+    const tr = document.createElement("tr");
+    const cells = [r.time.slice(11, 16), r.seat, r.net, r.status === "ok" ? r.fixes : r.status, r.ttff == null ? "–" : r.ttff + " s",
+      r.best ? "±" + m0(r.best.acc) : "–", r.best ? m0(r.best.dist) : "–", r.last ? "±" + m0(r.last.acc) : "–"];
+    for (const c of cells) { const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); }
+    tb.appendChild(tr);
+  }
+}
+render();
+
+function setStatus(text, kind) { $("status").textContent = text; $("status").className = "status " + (kind || ""); }
+
+$("go").addEventListener("click", () => {
+  if (!("geolocation" in navigator)) { setStatus("This browser has no location support.", "bad"); return; }
+  if (!$("phone").value.trim() || !$("seat").value.trim()) { setStatus("Fill in the phone model and where you are first.", "warn"); return; }
+  save();
+  const d = device();
+  const rec = { time: new Date().toISOString(), phone: $("phone").value.trim(), os: d.os, browser: d.browser, seat: $("seat").value.trim(),
+    net: $("net").value || "?", precise: $("precise").value || "?", status: "ok", fixes: 0, ttff: null, first: null, best: null, last: null };
+  const t0 = performance.now();
+  $("go").disabled = true;
+  setStatus("Waiting for the first position…");
+  let tick;
+  const fix = p => {
+    const c = p.coords, dist = distance(VENUE.lat, VENUE.lng, c.latitude, c.longitude);
+    const f = { acc: c.accuracy, dist, lat: +c.latitude.toFixed(5), lng: +c.longitude.toFixed(5) };
+    rec.fixes++;
+    if (!rec.first) { rec.first = f; rec.ttff = Math.round((performance.now() - t0) / 100) / 10; }
+    if (!rec.best || f.acc < rec.best.acc) rec.best = f;
+    rec.last = f;
+    $("acc").textContent = "±" + m0(f.acc); $("dist").textContent = m0(f.dist); $("margin").textContent = m0(f.dist - f.acc);
+    setStatus(rec.fixes + (rec.fixes === 1 ? " position" : " positions") + " so far. Keep the page open.", "ok");
+  };
+  const fail = e => {
+    if (e.code === 1) rec.status = "denied"; else if (e.code === 2) rec.status = "unavailable"; else if (!rec.fixes) rec.status = "timeout";
+    if (e.code === 1) { finish(); }
+  };
+  const id = navigator.geolocation.watchPosition(fix, fail, { enableHighAccuracy: true, maximumAge: 0, timeout: DURATION_MS });
+  function finish() {
+    navigator.geolocation.clearWatch(id); clearInterval(tick);
+    if (!rec.fixes && rec.status === "ok") rec.status = "no fix";
+    log.push(rec); save(); render();
+    $("progress").style.width = "0"; $("go").disabled = false;
+    if (rec.status === "denied") setStatus("Location was refused. Allow it in the browser settings and try again; this was logged as 'denied'.", "bad");
+    else if (!rec.fixes) setStatus("No position in 30 seconds; logged as '" + rec.status + "'.", "bad");
+    else setStatus("Saved. Best accuracy ±" + m0(rec.best.acc) + " m at " + m0(rec.best.dist) + " m from the rink point. Move to another seat and measure again.", "ok");
+  }
+  tick = setInterval(() => {
+    const el = performance.now() - t0;
+    $("progress").style.width = Math.min(100, el / DURATION_MS * 100) + "%";
+    if (el >= DURATION_MS) finish();
+  }, 250);
+});
+
+function report() {
+  const head = "| time | phone | os | browser | seat | net | precise | status | fixes | 1st fix s | 1st ± | 1st dist | best ± | best dist | best lat,lng | last ± | last dist |";
+  const sep = "|" + " --- |".repeat(17);
+  const lines = log.map(r => "| " + [r.time.slice(0, 16).replace("T", " "), r.phone, r.os, r.browser, r.seat, r.net, r.precise, r.status, r.fixes,
+    r.ttff ?? "", r.first ? m0(r.first.acc) : "", r.first ? m0(r.first.dist) : "", r.best ? m0(r.best.acc) : "", r.best ? m0(r.best.dist) : "",
+    r.best ? r.best.lat + "," + r.best.lng : "", r.last ? m0(r.last.acc) : "", r.last ? m0(r.last.dist) : ""]
+    .map(v => String(v).replace(/\|/g, "/")).join(" | ") + " |");
+  return "Rink point: " + VENUE.name + " (" + VENUE.lat + ", " + VENUE.lng + ")\n\n" + [head, sep, ...lines].join("\n");
+}
+$("copy").addEventListener("click", () => {
+  if (!log.length) { $("copyNote").textContent = "Nothing to copy yet."; return; }
+  const text = report();
+  const fallback = () => { const o = $("out"); o.hidden = false; o.value = text; o.focus(); o.select(); $("copyNote").textContent = "Copying isn't allowed here: the results are selected below, copy them by hand."; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => { $("copyNote").textContent = "Copied " + log.length + " measurements. Paste them as a comment on the GitHub ticket, or send them to Oscar."; }, fallback);
+  else fallback();
+});
+let armed = false;
+$("clear").addEventListener("click", () => {
+  if (!armed) { armed = true; $("clear").textContent = "Tap again to clear"; setTimeout(() => { armed = false; $("clear").textContent = "Clear"; }, 3000); return; }
+  armed = false; $("clear").textContent = "Clear"; log = []; save(); render(); $("out").hidden = true;
+});
+</script>
+</body>
+</html>
