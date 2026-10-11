@@ -58,7 +58,7 @@ textarea { width: 100%; min-height: 8rem; font: .75rem var(--mono); color: var(-
 <main>
   <header style="display:grid;gap:6px">
     <h1>Rink location test</h1>
-    <p class="venue">Measuring distance to <b id="venueName">the rink</b> (SIHF rink point <span id="venueCoords"></span>).</p>
+    <p class="venue">Measuring distance to <b id="venueName">the rink</b> (<span id="venueCoords"></span>).</p>
   </header>
 
   <section>
@@ -110,14 +110,15 @@ textarea { width: 100%; min-height: 8rem; font: .75rem var(--mono); color: var(-
 
 <script>
 // Rink point from the SIHF rink map (/de/game-center/eisfelder/224). Override with ?lat=..&lng=..&name=..
-const VENUE = { name: "Parc des sports, Château-d'Oex", lat: 46.473938, lng: 7.126188 };
+const VENUE = { name: "Parc des sports, Château-d'Oex", lat: 46.473938, lng: 7.126188, custom: false };
 const DURATION_MS = 30000;
 
+// A custom point (e.g. someone's home) never shows up in the copied results.
 const q = new URLSearchParams(location.search);
-if (q.get("lat") && q.get("lng")) { VENUE.lat = +q.get("lat"); VENUE.lng = +q.get("lng"); VENUE.name = q.get("name") || "custom point"; }
+if (q.get("lat") && q.get("lng")) { VENUE.lat = +q.get("lat"); VENUE.lng = +q.get("lng"); VENUE.name = q.get("name") || "custom point"; VENUE.custom = true; }
 const $ = id => document.getElementById(id);
 $("venueName").textContent = VENUE.name;
-$("venueCoords").textContent = VENUE.lat.toFixed(5) + ", " + VENUE.lng.toFixed(5);
+$("venueCoords").textContent = VENUE.custom ? "custom point, coordinates left out of results" : "SIHF rink point " + VENUE.lat.toFixed(5) + ", " + VENUE.lng.toFixed(5);
 
 function distance(lat1, lng1, lat2, lng2) {
   const R = 6371000, r = d => d * Math.PI / 180;
@@ -208,9 +209,9 @@ function report() {
   const sep = "|" + " --- |".repeat(17);
   const lines = log.map(r => "| " + [r.time.slice(0, 16).replace("T", " "), r.phone, r.os, r.browser, r.seat, r.net, r.precise, r.status, r.fixes,
     r.ttff ?? "", r.first ? m0(r.first.acc) : "", r.first ? m0(r.first.dist) : "", r.best ? m0(r.best.acc) : "", r.best ? m0(r.best.dist) : "",
-    r.best ? r.best.lat + "," + r.best.lng : "", r.last ? m0(r.last.acc) : "", r.last ? m0(r.last.dist) : ""]
+    VENUE.custom ? "hidden" : r.best ? r.best.lat + "," + r.best.lng : "", r.last ? m0(r.last.acc) : "", r.last ? m0(r.last.dist) : ""]
     .map(v => String(v).replace(/\|/g, "/")).join(" | ") + " |");
-  return "Rink point: " + VENUE.name + " (" + VENUE.lat + ", " + VENUE.lng + ")\n\n" + [head, sep, ...lines].join("\n");
+  return "Rink point: " + VENUE.name + (VENUE.custom ? " (custom point, coordinates hidden)" : " (" + VENUE.lat + ", " + VENUE.lng + ")") + "\n\n" + [head, sep, ...lines].join("\n");
 }
 $("copy").addEventListener("click", () => {
   if (!log.length) { $("copyNote").textContent = "Nothing to copy yet."; return; }
